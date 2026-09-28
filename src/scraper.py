@@ -21,10 +21,10 @@ fiction = fictionSoup.findAll("li", {"class": "col-xs-6 col-sm-4 col-md-3 col-lg
 nonFiction = nonFictionSoup.findAll("li", {"class": "col-xs-6 col-sm-4 col-md-3 col-lg-3"})
 
 # create csv file of all books in seperate files
-fictionData = ("fictionData.csv")
+fictionData = ("fictionData.json")
 f = open(fictionData, "w")
 
-nonFictionData = ("nonFictionData.csv")
+nonFictionData = ("nonFictionData.json")
 nf = open(nonFictionData, "w")
 
 headers = "Book title, Price\n"
