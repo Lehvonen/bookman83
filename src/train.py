@@ -1,11 +1,37 @@
+import json
 import numpy as np
+import pandas as pd
 from sklearn.model_selection import StratifiedKFold
 from sklearn.model_selection import cross_validate
 from sklearn.linear_model import LogisticRegression
 from sklearn.dummy import DummyClassifier
 from sklearn.metrics import make_scorer, precision_score
+from sklearn.pipeline import make_pipeline
+from sklearn.naive_bayes import MultinomialNB
+from sklearn.ensemble import RandomForestClassifier
+from textFeatures import tfidf_features
 
 RANDOM_STATE = 42
+
+
+def get_models():
+    """Return a dict of fresh, unfitted models keyed by name."""
+    return {
+        "Logistic regression": LogisticRegression(class_weight="balanced", max_iter=1000),
+        "Naive Bayes": MultinomialNB(fit_prior=False),
+        "Random forest": RandomForestClassifier(class_weight="balanced", random_state=RANDOM_STATE),
+    }
+
+
+# Temporary until data/books_clean.csv exists (sync point 1).
+# Then replace with pd.read_csv("data/books_clean.csv").
+def load_raw_data(path="books_data_raw.json"):
+    """Load the raw scraped JSON into a DataFrame with a label column."""
+    with open(path, encoding="utf-8") as f:
+        records = json.load(f)
+    df = pd.DataFrame(records)
+    df["label"] = (df["category"] == "Fiction").astype(int)
+    return df
 
 
 def evaluate(model, X, y):
@@ -41,5 +67,12 @@ if __name__ == "__main__":
     results = evaluate(DummyClassifier(strategy="most_frequent"), X, y)
     print_results("Majority baseline", results)
 
-    results = evaluate(LogisticRegression(), X, y)
-    print_results("Logistic regression (dummy data)", results)
+    for name, model in get_models().items():
+        results = evaluate(model, X, y)
+        print_results(f"{name} (dummy data)", results)
+
+    df = load_raw_data()
+    for name, model in get_models().items():
+        pipeline = make_pipeline(tfidf_features(), model)
+        results = evaluate(pipeline, df, df["label"])
+        print_results(f"{name} + TF-IDF", results)
