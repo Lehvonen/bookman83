@@ -10,16 +10,21 @@ def load_data(path="books_data_raw.json"):
         raw = json.load(f)
 
     records = []
-    for category, books in raw.items():
-        for title, fields in books.items():
-            records.append({
-                "title": title,
-                "category": category,
-                "label": 1 if category.lower() == "fiction" else 0,
-                "description": fields.get("description", ""),
-                "price": float(fields["price"].replace("£", "")),
-                "img_url": fields.get("img"),
-            })
+    for book in raw:
+        category = book["category"]
+        title = book["title"]
+
+        records.append({
+            "title": title,
+            "category": category,
+            "label": 1 if category.lower() == "fiction" else 0,
+            "description": book.get("description", ""),
+            "price": float(str(book["price"]).replace("£", "")),
+            "rating": int(book["rating"]),
+            "stock": int(book["stock"]),
+            "img_url": book.get("img_url", book.get("img")),
+        })
+
     return pd.DataFrame(records)
 
 
