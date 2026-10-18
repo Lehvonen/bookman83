@@ -1,14 +1,18 @@
+import json
 import numpy as np
 import pandas as pd
 import matplotlib.pyplot as plt
 from PIL import Image
-import os
+from pathlib import Path
 
-project_dir = os.path.dirname(os.path.dirname(os.path.abspath(__file__)))
-results_dir = os.path.join(os.path.dirname(__file__), "..", "results")
+PROJECT_DIR = Path(__file__).resolve().parents[1]
+RESULTS_DIR = PROJECT_DIR / "results"
 
 def mean_colour_and_brightness(path):
-    with Image.open(path) as img:
+    image_path = Path(path)
+    if not image_path.is_absolute():
+        image_path = PROJECT_DIR / image_path
+    with Image.open(image_path) as img:
         rgb = np.asarray(img.convert("RGB"))
         gray = np.asarray(img.convert("L"))
     r = rgb[:, :, 0].mean()
@@ -17,15 +21,10 @@ def mean_colour_and_brightness(path):
     brightness = gray.mean()
     return r, g, b, brightness
 
-
 def main():
-    df = pd.DataFrame({
-        "img_path": [
-            os.path.join(project_dir, "test_images", f"{i}.jpg")
-            for i in range(10)
-        ],
-        "label": [1] * 5 + [0] * 5,
-    })
+    with (PROJECT_DIR / "books_data_raw.json").open(encoding="utf-8") as f:
+        df = pd.DataFrame(json.load(f))
+    df["label"] = (df["category"] == "Fiction").astype(int)
 
     rows = []
     for path in df["img_path"]:
@@ -38,14 +37,14 @@ def main():
     print(means)
     print(stats.groupby("label")["brightness"].mean())
 
-    os.makedirs(results_dir, exist_ok=True)
+    RESULTS_DIR.mkdir(exist_ok=True)
     means.rename(index={0: "Nonfiction", 1: "Fiction"}).plot(
         kind="bar", color=["red", "green", "blue"]
     )
     plt.ylabel("Mean RGB value")
     plt.title("Mean colour by class")
     plt.xticks(rotation=0)
-    plt.savefig(os.path.join(results_dir, "image_colour_by_class.png"))
+    plt.savefig(RESULTS_DIR / "image_colour_by_class.png")
     plt.close()
 
     brightness_by_class = [
@@ -55,7 +54,7 @@ def main():
     plt.boxplot(brightness_by_class, tick_labels=["Nonfiction", "Fiction"])
     plt.ylabel("Mean brightness")
     plt.title("Image brightness by class")
-    plt.savefig(os.path.join(results_dir, "image_brightness_by_class.png"))
+    plt.savefig(RESULTS_DIR / "image_brightness_by_class.png")
     plt.close()
 
 

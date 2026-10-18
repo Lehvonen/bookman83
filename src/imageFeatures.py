@@ -3,10 +3,21 @@ from PIL import Image
 from sklearn.preprocessing import FunctionTransformer
 from sklearn.pipeline import make_pipeline
 from sklearn.decomposition import PCA
+from pathlib import Path
+
+
+PROJECT_DIR = Path(__file__).resolve().parents[1]
+
+
+def resolve_image_path(path):
+    image_path = Path(path)
+    if not image_path.is_absolute():
+        image_path = PROJECT_DIR / image_path
+    return image_path
 
 
 def histogram_one_image(path):
-    with Image.open(path) as img:
+    with Image.open(resolve_image_path(path)) as img:
         pixels = np.asarray(img.convert("RGB"))
 
     parts = []
@@ -31,7 +42,7 @@ def color_histogram():
 
 
 def gray_vector_one_image(path):
-    with Image.open(path) as img:
+    with Image.open(resolve_image_path(path)) as img:
         gray = img.convert("L").resize((32, 32))
         arr = np.asarray(gray)
     return arr.flatten() / 255
@@ -46,5 +57,5 @@ def load_gray_pixels(df):
 
 def grayscale_pca():
     return make_pipeline(
-        FunctionTransformer(load_gray_pixels), PCA(n_components=5)
+        FunctionTransformer(load_gray_pixels), PCA(n_components=28)
     )
