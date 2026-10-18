@@ -4,12 +4,14 @@ from sklearn.preprocessing import FunctionTransformer, StandardScaler
 
 def numeric_columns(df):
     desc_len = df["description"].str.len()
+    has_colon = df["title"].fillna("").str.contains(":").astype(int)
 
     return np.column_stack([
         df["price"],
         df["rating"],
         df["stock"],
-        desc_len
+        desc_len,
+        has_colon
     ]).astype(float)
 
 def numeric_features():
