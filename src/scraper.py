@@ -45,8 +45,8 @@ def get_book_description(book_url):
 
 # scrape every book across every page of one category
 # returns {book_title: {img, description, price} }
-def scrape_category(start_url):
-    books_data = {}
+def scrape_category(start_url, category):
+    records = []
  
     for soup in get_category_pages(start_url):
         listings = soup.findAll("li", {"class": "col-xs-6 col-sm-4 col-md-3 col-lg-3"})
@@ -64,29 +64,28 @@ def scrape_category(start_url):
  
             print(f"Scraped: {title}")
  
-            books_data[title] = {
+            records.append({
+                "title": title,
+                "category": category,
                 "img": img_url,
                 "description": description,
                 "price": price
-            }
+            })
            
-    return books_data
+    return records
 
 
 def main():
     print("Scraping Fiction...")
-    fiction = scrape_category(urlFiction)
+    fiction = scrape_category(urlFiction, "Fiction")
  
     print("Scraping Nonfiction...")
-    nonFiction = scrape_category(urlNonFiction)
+    nonFiction = scrape_category(urlNonFiction, "Nonfiction")
  
-    output = {
-        "fiction": fiction,
-        "nonFiction": nonFiction
-    }
  
     with open("books_data_raw.json", "w", encoding="utf-8") as f:
-        json.dump(output, f, indent=2, ensure_ascii=False)
+        records = fiction + nonFiction
+        json.dump(records, f, indent=2, ensure_ascii=False)
  
 
 if __name__ == "__main__":
