@@ -1,19 +1,12 @@
 import json
-from pathlib import Path
 import pandas as pd
 from sklearn.feature_extraction.text import TfidfVectorizer
 from sklearn.pipeline import make_pipeline
 from sklearn.preprocessing import FunctionTransformer
 
 
-PROJECT_DIR = Path(__file__).resolve().parents[1]
-
-
-def load_data(path=None):
-    data_path = PROJECT_DIR / "books_data_raw.json" if path is None else Path(path)
-    if not data_path.is_absolute():
-        data_path = PROJECT_DIR / data_path
-    with data_path.open(encoding="utf-8") as f:
+def load_data(path="books_data_raw.json"):
+    with open(path, encoding="utf-8") as f:
         raw = json.load(f)
 
     records = []

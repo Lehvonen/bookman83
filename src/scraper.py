@@ -3,9 +3,7 @@ from urllib.parse import urljoin
 from bs4 import BeautifulSoup as bSoup
 import json
 import re
-from pathlib import Path
-
-PROJECT_DIR = Path(__file__).resolve().parents[1]
+import os
 
 # store url in variable urlFiction and urlNonFiction
 urlFiction = "https://books.toscrape.com/catalogue/category/books/fiction_10/index.html"
@@ -70,22 +68,21 @@ def get_book_details(book_url):
     }
 #image downloader 
 def download_image(img_url, upc):
-    relative_path = Path("data") / "images" / f"{upc}.jpg"
-    img_path = PROJECT_DIR / relative_path
-    img_path.parent.mkdir(parents=True, exist_ok=True)
+    os.makedirs("data/images", exist_ok=True)
+    img_path = f"data/images/{upc}.jpg"
 
-    if img_path.exists():
-        return relative_path.as_posix()
+    if os.path.exists(img_path): 
+        return img_path
     
     try:
         data = uOpen(img_url).read()
-        with img_path.open("wb") as f:
+        with open(img_path, "wb") as f:
             f.write(data)
     except Exception as e:
         print(f"Image failed for {upc}: {e}")
         return ""
 
-    return relative_path.as_posix()
+    return img_path
 
 # scrape every book across every page of one category
 # returns {book_title: {img, description, price} }
@@ -132,7 +129,7 @@ def main():
     nonFiction = scrape_category(urlNonFiction, "Nonfiction")
  
  
-    with (PROJECT_DIR / "books_data_raw.json").open("w", encoding="utf-8") as f:
+    with open("books_data_raw.json", "w", encoding="utf-8") as f:
         records = fiction + nonFiction
         json.dump(records, f, indent=2, ensure_ascii=False)
  

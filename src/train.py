@@ -17,8 +17,6 @@ from textFeatures import tfidf_features
 from numericFeatures import numeric_features
 
 RANDOM_STATE = 42
-PROJECT_DIR = Path(__file__).resolve().parents[1]
-RESULTS_DIR = PROJECT_DIR / "results"
 
 # MultinomialNB fails on negative values, so it only runs on these feature sets.
 # StandardScaler (numeric features) and PCA (grayscale) produce negative values.
@@ -46,12 +44,11 @@ def get_feature_sets():
     }
 
 
-def load_raw_data(path=None):
+# Temporary until data/books_clean.csv exists (sync point 1).
+# Then replace with pd.read_csv("data/books_clean.csv").
+def load_raw_data(path="books_data_raw.json"):
     """Load the raw scraped JSON into a DataFrame with a label column."""
-    data_path = PROJECT_DIR / "books_data_raw.json" if path is None else Path(path)
-    if not data_path.is_absolute():
-        data_path = PROJECT_DIR / data_path
-    with data_path.open(encoding="utf-8") as f:
+    with open(path, encoding="utf-8") as f:
         records = json.load(f)
     df = pd.DataFrame(records)
     df["label"] = (df["category"] == "Fiction").astype(int)
@@ -126,15 +123,14 @@ def inspect_best_model(df):
         df["label"], preds, display_labels=["Nonfiction", "Fiction"]
     )
     plt.title(f"{BEST_FEATURES} + {BEST_MODEL}")
-    RESULTS_DIR.mkdir(exist_ok=True)
-    plt.savefig(RESULTS_DIR / "confusion_matrix.png", dpi=150, bbox_inches="tight")
+    plt.savefig("results/confusion_matrix.png", dpi=150, bbox_inches="tight")
     plt.close()
 
     is_wrong = preds != df["label"]
     wrong = df.loc[is_wrong, ["title", "category"]].copy()
     wrong["predicted"] = np.where(preds[is_wrong] == 1, "Fiction", "Nonfiction")
     print(f"\n{len(wrong)} misclassified books")
-    wrong.to_csv(RESULTS_DIR / "misclassified.csv", index=False)
+    wrong.to_csv("results/misclassified.csv", index=False)
 
     # Top words come from a model fitted on all the data, since they describe it rather than score it.
     if BEST_FEATURES == "TF-IDF" and BEST_MODEL == "Logistic regression":
@@ -154,7 +150,7 @@ def inspect_best_model(df):
         })
         print("\nTop words")
         print(top_words.round(3).to_string(index=False))
-        top_words.to_csv(RESULTS_DIR / "top_words.csv", index=False)
+        top_words.to_csv("results/top_words.csv", index=False)
     else:
         print("Top words are only available for TF-IDF + Logistic regression.")
 
@@ -164,7 +160,7 @@ if __name__ == "__main__":
     table = results_table(df)
     print(table.round(3).to_string(index=False))
 
-    RESULTS_DIR.mkdir(exist_ok=True)
-    table.to_csv(RESULTS_DIR / "results_table.csv", index=False)
+    Path("results").mkdir(exist_ok=True)
+    table.to_csv("results/results_table.csv", index=False)
 
     inspect_best_model(df)
