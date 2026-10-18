@@ -4,15 +4,13 @@ import pandas as pd
 import matplotlib.pyplot as plt
 from PIL import Image
 from pathlib import Path
+from imageFeatures import resolve_image_path
 
 PROJECT_DIR = Path(__file__).resolve().parents[1]
 RESULTS_DIR = PROJECT_DIR / "results"
 
 def mean_colour_and_brightness(path):
-    image_path = Path(path)
-    if not image_path.is_absolute():
-        image_path = PROJECT_DIR / image_path
-    with Image.open(image_path) as img:
+    with Image.open(resolve_image_path(path)) as img:
         rgb = np.asarray(img.convert("RGB"))
         gray = np.asarray(img.convert("L"))
     r = rgb[:, :, 0].mean()
