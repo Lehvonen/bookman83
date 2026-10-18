@@ -2,6 +2,7 @@ from urllib.request import urlopen as uOpen
 from urllib.parse import urljoin
 from bs4 import BeautifulSoup as bSoup
 import json
+import re
 
 # store url in variable urlFiction and urlNonFiction
 urlFiction = "https://books.toscrape.com/catalogue/category/books/fiction_10/index.html"
@@ -34,13 +35,36 @@ def get_category_pages(start_url):
 
 
 # open specific book page and pull the description
-def get_book_description(book_url):
+def get_book_details(book_url):
     soup = get_soup(book_url)
+
+    # description
+    description = ""
     desc_heading = soup.find("div", id="product_description")
-    if desc_heading is None:
-        return ""
-    desc_paragraph = desc_heading.find_next_sibling("p")
-    return desc_paragraph.text.strip() if desc_paragraph else ""
+    if desc_heading is not None:
+        desc_paragraph = desc_heading.find_next_sibling("p")
+        if desc_paragraph: 
+            description = desc_paragraph.text.strip()    
+
+    # stock UPC and rating
+    table = soup.find("table", {"class": "table table-striped"})
+    rows = {}
+    for tr in table.find_all("tr"):
+        rows[tr.th.text.strip()] = tr.td.text.strip()
+
+    upc = rows["UPC"]
+    stock = int(re.search(r"\d+", rows["Availability"]).group())
+
+    words = {"One": 1, "Two": 2, "Three": 3, "Four": 4, "Five": 5}
+    star_tag = soup.find("p", class_="star-rating")
+    rating = words[star_tag["class"][1]]
+
+    return {
+        "description": description,
+        "upc": upc,
+        "rating": rating,
+        "stock": stock
+    }
 
 
 # scrape every book across every page of one category
@@ -60,7 +84,7 @@ def scrape_category(start_url, category):
  
             book_relative_link = book.h3.a["href"]
             book_url = urljoin(start_url, book_relative_link)
-            description = get_book_description(book_url)
+            details = get_book_details(book_url)
  
             print(f"Scraped: {title}")
  
@@ -68,8 +92,11 @@ def scrape_category(start_url, category):
                 "title": title,
                 "category": category,
                 "img": img_url,
-                "description": description,
-                "price": price
+                "description": details["description"],
+                "price": price,
+                "upc": details ["upc"],
+                "rating": details["rating"],
+                "stock": details["stock"]
             })
            
     return records
