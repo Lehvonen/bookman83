@@ -56,6 +56,8 @@ def load_gray_pixels(df):
 
 
 def grayscale_pca():
+    # 28 is the smallest K that keeps 90% of the variance on the 175 covers
+    # (K=5 kept 76%); the contract allows K <= 140, the size of a training fold
     return make_pipeline(
         FunctionTransformer(load_gray_pixels), PCA(n_components=28)
     )
