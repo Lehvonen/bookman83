@@ -10,6 +10,9 @@ PROJECT_DIR = Path(__file__).resolve().parents[1]
 
 
 def resolve_image_path(path):
+    # the scraper saves img_path="" when a cover download fails
+    if not path:
+        raise ValueError("Empty img_path: cover image is missing")
     image_path = Path(path)
     if not image_path.is_absolute():
         image_path = PROJECT_DIR / image_path
