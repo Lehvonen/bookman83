@@ -1,21 +1,30 @@
 import json
 from pathlib import Path
+import numpy as np
 import pandas as pd
+import matplotlib.pyplot as plt
 from sklearn.model_selection import StratifiedKFold
 from sklearn.model_selection import cross_validate
+from sklearn.model_selection import cross_val_predict
 from sklearn.linear_model import LogisticRegression
 from sklearn.dummy import DummyClassifier
 from sklearn.metrics import make_scorer, precision_score
+from sklearn.metrics import ConfusionMatrixDisplay
 from sklearn.pipeline import make_pipeline
 from sklearn.naive_bayes import MultinomialNB
 from sklearn.ensemble import RandomForestClassifier
 from textFeatures import tfidf_features
+from numericFeatures import numeric_features
 
 RANDOM_STATE = 42
 
 # MultinomialNB fails on negative values, so it only runs on these feature sets.
 # StandardScaler (numeric features) and PCA (grayscale) produce negative values.
 NON_NEGATIVE_FEATURES = {"TF-IDF"}
+
+# Must match keys in get_feature_sets() and get_models().
+BEST_FEATURES = "TF-IDF"
+BEST_MODEL = "Logistic regression"
 
 
 def get_models():
@@ -31,6 +40,7 @@ def get_feature_sets():
     """Return a dict of feature functions (not called) keyed by name."""
     return {
         "TF-IDF": tfidf_features,
+        "Numeric": numeric_features,
     }
 
 
@@ -42,19 +52,24 @@ def load_raw_data(path="books_data_raw.json"):
         records = json.load(f)
     df = pd.DataFrame(records)
     df["label"] = (df["category"] == "Fiction").astype(int)
+    df["price"] = df["price"].str.replace("£", "").astype(float)
     return df
+
+
+def get_folds():
+    """Return the stratified 5-fold split shared by every evaluation."""
+    return StratifiedKFold(n_splits=5, shuffle=True, random_state=RANDOM_STATE)
 
 
 def evaluate(model, X, y):
     """Run 5-fold stratified cross-validation and return mean/std per metric."""
-    folds = StratifiedKFold(n_splits=5, shuffle=True, random_state=RANDOM_STATE)
     metrics = {
         "balanced_accuracy": "balanced_accuracy",
         "f1": "f1",
         "precision": make_scorer(precision_score, zero_division=0),
         "recall": "recall",
     }
-    scores = cross_validate(model, X, y, cv=folds, scoring=metrics)
+    scores = cross_validate(model, X, y, cv=get_folds(), scoring=metrics)
 
     results = {}
     for metric in metrics:
