@@ -1,21 +1,30 @@
 import json
 from pathlib import Path
+import numpy as np
 import pandas as pd
+import matplotlib.pyplot as plt
 from sklearn.model_selection import StratifiedKFold
 from sklearn.model_selection import cross_validate
+from sklearn.model_selection import cross_val_predict
 from sklearn.linear_model import LogisticRegression
 from sklearn.dummy import DummyClassifier
 from sklearn.metrics import make_scorer, precision_score
+from sklearn.metrics import ConfusionMatrixDisplay
 from sklearn.pipeline import make_pipeline
 from sklearn.naive_bayes import MultinomialNB
 from sklearn.ensemble import RandomForestClassifier
 from textFeatures import tfidf_features
+from numericFeatures import numeric_features
 
 RANDOM_STATE = 42
 
 # MultinomialNB fails on negative values, so it only runs on these feature sets.
 # StandardScaler (numeric features) and PCA (grayscale) produce negative values.
 NON_NEGATIVE_FEATURES = {"TF-IDF"}
+
+# Must match keys in get_feature_sets() and get_models().
+BEST_FEATURES = "TF-IDF"
+BEST_MODEL = "Logistic regression"
 
 
 def get_models():
@@ -31,6 +40,7 @@ def get_feature_sets():
     """Return a dict of feature functions (not called) keyed by name."""
     return {
         "TF-IDF": tfidf_features,
+        "Numeric": numeric_features,
     }
 
 
@@ -42,19 +52,24 @@ def load_raw_data(path="books_data_raw.json"):
         records = json.load(f)
     df = pd.DataFrame(records)
     df["label"] = (df["category"] == "Fiction").astype(int)
+    df["price"] = df["price"].str.replace("£", "").astype(float)
     return df
+
+
+def get_folds():
+    """Return the stratified 5-fold split shared by every evaluation."""
+    return StratifiedKFold(n_splits=5, shuffle=True, random_state=RANDOM_STATE)
 
 
 def evaluate(model, X, y):
     """Run 5-fold stratified cross-validation and return mean/std per metric."""
-    folds = StratifiedKFold(n_splits=5, shuffle=True, random_state=RANDOM_STATE)
     metrics = {
         "balanced_accuracy": "balanced_accuracy",
         "f1": "f1",
         "precision": make_scorer(precision_score, zero_division=0),
         "recall": "recall",
     }
-    scores = cross_validate(model, X, y, cv=folds, scoring=metrics)
+    scores = cross_validate(model, X, y, cv=get_folds(), scoring=metrics)
 
     results = {}
     for metric in metrics:
@@ -97,6 +112,49 @@ def results_table(df):
     return pd.DataFrame(rows).sort_values("balanced_accuracy", ascending=False)
 
 
+def inspect_best_model(df):
+    """Confusion matrix, misclassified books and top words for the best combination."""
+    pipeline = make_pipeline(get_feature_sets()[BEST_FEATURES](), get_models()[BEST_MODEL])
+
+    # Out-of-fold predictions: every book is predicted by a model that never saw it.
+    preds = cross_val_predict(pipeline, df, df["label"], cv=get_folds())
+
+    ConfusionMatrixDisplay.from_predictions(
+        df["label"], preds, display_labels=["Nonfiction", "Fiction"]
+    )
+    plt.title(f"{BEST_FEATURES} + {BEST_MODEL}")
+    plt.savefig("results/confusion_matrix.png", dpi=150, bbox_inches="tight")
+    plt.close()
+
+    is_wrong = preds != df["label"]
+    wrong = df.loc[is_wrong, ["title", "category"]].copy()
+    wrong["predicted"] = np.where(preds[is_wrong] == 1, "Fiction", "Nonfiction")
+    print(f"\n{len(wrong)} misclassified books")
+    wrong.to_csv("results/misclassified.csv", index=False)
+
+    # Top words come from a model fitted on all the data, since they describe it rather than score it.
+    if BEST_FEATURES == "TF-IDF" and BEST_MODEL == "Logistic regression":
+        pipeline.fit(df, df["label"])
+        vectorizer = pipeline[0][-1]
+        words = vectorizer.get_feature_names_out()
+        coefs = pipeline[-1].coef_[0]
+        order = np.argsort(coefs)
+        fiction = order[-15:][::-1]
+        nonfiction = order[:15]
+
+        top_words = pd.DataFrame({
+            "fiction_word": words[fiction],
+            "fiction_weight": coefs[fiction],
+            "nonfiction_word": words[nonfiction],
+            "nonfiction_weight": coefs[nonfiction],
+        })
+        print("\nTop words")
+        print(top_words.round(3).to_string(index=False))
+        top_words.to_csv("results/top_words.csv", index=False)
+    else:
+        print("Top words are only available for TF-IDF + Logistic regression.")
+
+
 if __name__ == "__main__":
     df = load_raw_data()
     table = results_table(df)
@@ -104,3 +162,5 @@ if __name__ == "__main__":
 
     Path("results").mkdir(exist_ok=True)
     table.to_csv("results/results_table.csv", index=False)
+
+    inspect_best_model(df)
