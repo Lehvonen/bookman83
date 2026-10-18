@@ -29,7 +29,7 @@ def load_data(path="books_data_raw.json"):
 
 
 def book_text(df):
-    return (df["title"] + " " + df["description"]).tolist()
+    return (df["title"].fillna("") + " " + df["description"].fillna("")).tolist()
 
 
 def tfidf_features():
