@@ -3,7 +3,7 @@ from sklearn.pipeline import make_pipeline
 from sklearn.preprocessing import FunctionTransformer, StandardScaler
 
 def numeric_columns(df):
-    desc_len = df["description"].str.len()
+    desc_len = df["description"].fillna("").str.len()
     has_colon = df["title"].fillna("").str.contains(":").astype(int)
 
     return np.column_stack([
