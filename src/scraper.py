@@ -3,6 +3,7 @@ from urllib.parse import urljoin
 from bs4 import BeautifulSoup as bSoup
 import json
 import re
+import os
 
 # store url in variable urlFiction and urlNonFiction
 urlFiction = "https://books.toscrape.com/catalogue/category/books/fiction_10/index.html"
@@ -65,7 +66,23 @@ def get_book_details(book_url):
         "rating": rating,
         "stock": stock
     }
+#image downloader 
+def download_image(img_url, upc):
+    os.makedirs("data/images", exist_ok=True)
+    img_path = f"data/images/{upc}.jpg"
 
+    if os.path.exists(img_path): 
+        return img_path
+    
+    try:
+        data = uOpen(img_url).read()
+        with open(img_path, "wb") as f:
+            f.write(data)
+    except Exception as e:
+        print(f"Image failed for {upc}: {e}")
+        return ""
+
+    return img_path
 
 # scrape every book across every page of one category
 # returns {book_title: {img, description, price} }
@@ -85,6 +102,7 @@ def scrape_category(start_url, category):
             book_relative_link = book.h3.a["href"]
             book_url = urljoin(start_url, book_relative_link)
             details = get_book_details(book_url)
+            img_path = download_image(img_url, details["upc"])
  
             print(f"Scraped: {title}")
  
@@ -92,6 +110,7 @@ def scrape_category(start_url, category):
                 "title": title,
                 "category": category,
                 "img": img_url,
+                "img_path": img_path,
                 "description": details["description"],
                 "price": price,
                 "upc": details ["upc"],
