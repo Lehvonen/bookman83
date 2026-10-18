@@ -1,5 +1,5 @@
 import json
-import numpy as np
+from pathlib import Path
 import pandas as pd
 from sklearn.model_selection import StratifiedKFold
 from sklearn.model_selection import cross_validate
@@ -13,6 +13,10 @@ from textFeatures import tfidf_features
 
 RANDOM_STATE = 42
 
+# MultinomialNB fails on negative values, so it only runs on these feature sets.
+# StandardScaler (numeric features) and PCA (grayscale) produce negative values.
+NON_NEGATIVE_FEATURES = {"TF-IDF"}
+
 
 def get_models():
     """Return a dict of fresh, unfitted models keyed by name."""
@@ -20,6 +24,13 @@ def get_models():
         "Logistic regression": LogisticRegression(class_weight="balanced", max_iter=1000),
         "Naive Bayes": MultinomialNB(fit_prior=False),
         "Random forest": RandomForestClassifier(class_weight="balanced", random_state=RANDOM_STATE),
+    }
+
+
+def get_feature_sets():
+    """Return a dict of feature functions (not called) keyed by name."""
+    return {
+        "TF-IDF": tfidf_features,
     }
 
 
@@ -59,20 +70,37 @@ def print_results(name, results):
         print(f"{metric}: {stats['mean']:.3f} +/- {stats['std']:.3f}")
 
 
+def make_row(features, model_name, results):
+    """Flatten one evaluation into a table row with a mean and std column per metric."""
+    row = {"features": features, "model": model_name}
+    for metric, stats in results.items():
+        row[metric] = stats["mean"]
+        row[f"{metric}_std"] = stats["std"]
+    return row
+
+
+def results_table(df):
+    """Evaluate the baseline and every feature set x model combination."""
+    rows = []
+
+    results = evaluate(DummyClassifier(strategy="most_frequent"), df, df["label"])
+    rows.append(make_row("-", "Majority baseline", results))
+
+    for feature_name, feature_fn in get_feature_sets().items():
+        for model_name, model in get_models().items():
+            if model_name == "Naive Bayes" and feature_name not in NON_NEGATIVE_FEATURES:
+                continue
+            pipeline = make_pipeline(feature_fn(), model)
+            results = evaluate(pipeline, df, df["label"])
+            rows.append(make_row(feature_name, model_name, results))
+
+    return pd.DataFrame(rows).sort_values("balanced_accuracy", ascending=False)
+
+
 if __name__ == "__main__":
-    rng = np.random.default_rng(RANDOM_STATE)
-    X = rng.random((175, 10))
-    y = np.array([1] * 65 + [0] * 110)
-
-    results = evaluate(DummyClassifier(strategy="most_frequent"), X, y)
-    print_results("Majority baseline", results)
-
-    for name, model in get_models().items():
-        results = evaluate(model, X, y)
-        print_results(f"{name} (dummy data)", results)
-
     df = load_raw_data()
-    for name, model in get_models().items():
-        pipeline = make_pipeline(tfidf_features(), model)
-        results = evaluate(pipeline, df, df["label"])
-        print_results(f"{name} + TF-IDF", results)
+    table = results_table(df)
+    print(table.round(3).to_string(index=False))
+
+    Path("results").mkdir(exist_ok=True)
+    table.to_csv("results/results_table.csv", index=False)
