@@ -112,6 +112,49 @@ def results_table(df):
     return pd.DataFrame(rows).sort_values("balanced_accuracy", ascending=False)
 
 
+def inspect_best_model(df):
+    """Confusion matrix, misclassified books and top words for the best combination."""
+    pipeline = make_pipeline(get_feature_sets()[BEST_FEATURES](), get_models()[BEST_MODEL])
+
+    # Out-of-fold predictions: every book is predicted by a model that never saw it.
+    preds = cross_val_predict(pipeline, df, df["label"], cv=get_folds())
+
+    ConfusionMatrixDisplay.from_predictions(
+        df["label"], preds, display_labels=["Nonfiction", "Fiction"]
+    )
+    plt.title(f"{BEST_FEATURES} + {BEST_MODEL}")
+    plt.savefig("results/confusion_matrix.png", dpi=150, bbox_inches="tight")
+    plt.close()
+
+    is_wrong = preds != df["label"]
+    wrong = df.loc[is_wrong, ["title", "category"]].copy()
+    wrong["predicted"] = np.where(preds[is_wrong] == 1, "Fiction", "Nonfiction")
+    print(f"\n{len(wrong)} misclassified books")
+    wrong.to_csv("results/misclassified.csv", index=False)
+
+    # Top words come from a model fitted on all the data, since they describe it rather than score it.
+    if BEST_FEATURES == "TF-IDF" and BEST_MODEL == "Logistic regression":
+        pipeline.fit(df, df["label"])
+        vectorizer = pipeline[0][-1]
+        words = vectorizer.get_feature_names_out()
+        coefs = pipeline[-1].coef_[0]
+        order = np.argsort(coefs)
+        fiction = order[-15:][::-1]
+        nonfiction = order[:15]
+
+        top_words = pd.DataFrame({
+            "fiction_word": words[fiction],
+            "fiction_weight": coefs[fiction],
+            "nonfiction_word": words[nonfiction],
+            "nonfiction_weight": coefs[nonfiction],
+        })
+        print("\nTop words")
+        print(top_words.round(3).to_string(index=False))
+        top_words.to_csv("results/top_words.csv", index=False)
+    else:
+        print("Top words are only available for TF-IDF + Logistic regression.")
+
+
 if __name__ == "__main__":
     df = load_raw_data()
     table = results_table(df)
@@ -119,3 +162,5 @@ if __name__ == "__main__":
 
     Path("results").mkdir(exist_ok=True)
     table.to_csv("results/results_table.csv", index=False)
+
+    inspect_best_model(df)
