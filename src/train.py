@@ -1,4 +1,3 @@
-import json
 from pathlib import Path
 import numpy as np
 import pandas as pd
@@ -13,16 +12,19 @@ from sklearn.metrics import ConfusionMatrixDisplay
 from sklearn.pipeline import make_pipeline
 from sklearn.naive_bayes import MultinomialNB
 from sklearn.ensemble import RandomForestClassifier
-from textFeatures import tfidf_features
+from textFeatures import tfidf_features, load_data
 from numericFeatures import numeric_features
+from imageFeatures import color_histogram, grayscale_pca
 
 RANDOM_STATE = 42
 
 # MultinomialNB fails on negative values, so it only runs on these feature sets.
 # StandardScaler (numeric features) and PCA (grayscale) produce negative values.
-NON_NEGATIVE_FEATURES = {"TF-IDF"}
+NON_NEGATIVE_FEATURES = {"TF-IDF", "Colour histogram"}
 
 # Must match keys in get_feature_sets() and get_models().
+# TF-IDF + logistic regression is inspected because its coefficients give readable
+# word weights. Numeric + logistic regression scores higher (see results_table.csv).
 BEST_FEATURES = "TF-IDF"
 BEST_MODEL = "Logistic regression"
 
@@ -41,19 +43,9 @@ def get_feature_sets():
     return {
         "TF-IDF": tfidf_features,
         "Numeric": numeric_features,
+        "Colour histogram": color_histogram,
+        "Grayscale PCA": grayscale_pca,
     }
-
-
-# Temporary until data/books_clean.csv exists (sync point 1).
-# Then replace with pd.read_csv("data/books_clean.csv").
-def load_raw_data(path="books_data_raw.json"):
-    """Load the raw scraped JSON into a DataFrame with a label column."""
-    with open(path, encoding="utf-8") as f:
-        records = json.load(f)
-    df = pd.DataFrame(records)
-    df["label"] = (df["category"] == "Fiction").astype(int)
-    df["price"] = df["price"].str.replace("£", "").astype(float)
-    return df
 
 
 def get_folds():
@@ -127,7 +119,8 @@ def inspect_best_model(df):
     plt.close()
 
     is_wrong = preds != df["label"]
-    wrong = df.loc[is_wrong, ["title", "category"]].copy()
+    wrong = df.loc[is_wrong, ["title"]].copy()
+    wrong["actual"] = np.where(df.loc[is_wrong, "label"] == 1, "Fiction", "Nonfiction")
     wrong["predicted"] = np.where(preds[is_wrong] == 1, "Fiction", "Nonfiction")
     print(f"\n{len(wrong)} misclassified books")
     wrong.to_csv("results/misclassified.csv", index=False)
@@ -156,7 +149,7 @@ def inspect_best_model(df):
 
 
 if __name__ == "__main__":
-    df = load_raw_data()
+    df = load_data()
     table = results_table(df)
     print(table.round(3).to_string(index=False))
 

@@ -2,6 +2,7 @@ import re
 import json
 import pandas as pd
 from PIL import Image
+from pathlib import Path
 
 
 def clean_description(text):
@@ -14,7 +15,10 @@ def clean_description(text):
     return text
 
 
-records = json.load(open("/workspaces/bookman83/books_data_raw.json", encoding="utf-8"))
+PROJECT_DIR = Path(__file__).resolve().parents[1]
+
+with (PROJECT_DIR / "books_data_raw.json").open(encoding="utf-8") as f:
+    records = json.load(f)
 df = pd.DataFrame(records)
 
 df["description"] = df["description"].apply(clean_description)
@@ -36,13 +40,13 @@ print("duplicate titles:", df["title"].duplicated().sum())
 bad_images = []
 for _, row in df.iterrows():
     try:
-        with Image.open(row["img_path"]) as im:
+        with Image.open(PROJECT_DIR / row["img_path"]) as im:
             im.verify()
     except Exception as e:
         bad_images.append((row["upc"], str(e)))
 print("unreadable images:", bad_images)
 
 # save
-df.to_csv("data/books_clean.csv", index=False, encoding="utf-8")
+df.to_csv(PROJECT_DIR / "data" / "books_clean.csv", index=False, encoding="utf-8")
 print(df.shape)
 print(df["label"].value_counts())

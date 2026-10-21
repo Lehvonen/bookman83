@@ -27,5 +27,5 @@ if __name__ == "__main__":
 
     X = numeric_features().fit_transform(df)
 
-    print(X.shape)  # should be (175, 4)
+    print(X.shape)  # should be (175, 5)
     print(X[:5])    # show the first five books
