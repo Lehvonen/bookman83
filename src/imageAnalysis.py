@@ -1,10 +1,10 @@
-import json
 import numpy as np
 import pandas as pd
 import matplotlib.pyplot as plt
 from PIL import Image
 from pathlib import Path
 from imageFeatures import resolve_image_path
+from textFeatures import load_data
 
 PROJECT_DIR = Path(__file__).resolve().parents[1]
 RESULTS_DIR = PROJECT_DIR / "results"
@@ -20,9 +20,7 @@ def mean_colour_and_brightness(path):
     return r, g, b, brightness
 
 def main():
-    with (PROJECT_DIR / "books_data_raw.json").open(encoding="utf-8") as f:
-        df = pd.DataFrame(json.load(f))
-    df["label"] = (df["category"] == "Fiction").astype(int)
+    df = load_data()
 
     rows = []
     for path in df["img_path"]:
