@@ -3,4 +3,4 @@ pandas
 numpy
 scikit-learn
 Pillow
-matplotlib
+matplotlib>=3.9
